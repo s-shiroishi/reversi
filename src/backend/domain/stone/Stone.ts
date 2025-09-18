@@ -2,17 +2,17 @@ import { StoneError } from "./StoneError"
 
 export class Stone{
     private VALID_NAMES = ["black", "white"]
-    constructor(private _color: string){
-        if(!this.VALID_NAMES.includes(_color)){
+    constructor(private readonly params: {color: string}){
+        if(!this.VALID_NAMES.includes(params.color)){
             throw StoneError.invalidColor("石の色はblackまたはwhiteしか使用できません。")
         }
     }
 
     get color(){
-        return this._color;
+        return this.params.color;
     }
 
-    static reconstruct(color: string){
-        return new Stone(color)
+    static reconstruct(params: { color: string }){
+        return new Stone({color: params.color})
     }
 }
