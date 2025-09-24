@@ -2,26 +2,6 @@ exports.up = (pgm) => {
   // Enable UUID extension
   pgm.createExtension('uuid-ossp', { ifNotExists: true });
 
-  // Users table
-  pgm.createTable('users', {
-    id: {
-      type: 'uuid',
-      primaryKey: true,
-      default: pgm.func('uuid_generate_v4()')
-    },
-    auth_id: {
-      type: 'uuid',
-      notNull: true,
-      unique: true
-    },
-    name: { type: 'varchar(255)', notNull: true },
-    created_at: {
-      type: 'timestamp',
-      notNull: true,
-      default: pgm.func('current_timestamp')
-    }
-  });
-
   // Stones table
   pgm.createTable('stones', {
     id: {
@@ -43,22 +23,21 @@ exports.up = (pgm) => {
       primaryKey: true,
       default: pgm.func('uuid_generate_v4()')
     },
-    user_id: {
-      type: 'uuid',
-      notNull: true,
-      references: 'users',
-      onDelete: 'CASCADE'
-    },
     status: {
       type: 'varchar(20)',
       notNull: true,
       check: "status IN ('playing', 'finished')",
       default: 'playing'
     },
-    user_color: {
-      type: 'varchar(10)',
+    turn:{
+      type: 'uuid',
       notNull: true,
-      check: "user_color IN ('black', 'white')"
+      references: 'stones',
+    },
+    created_at: {
+      type: 'timestamp',
+      notNull: true,
+      default: pgm.func('current_timestamp')
     }
   });
 
@@ -112,18 +91,20 @@ exports.up = (pgm) => {
       onDelete: 'CASCADE',
       unique: true
     },
-    winner: {
-      type: 'varchar(10)',
+    winner_id: {
+      type: 'uuid',
       notNull: true,
-      check: "winner IN ('user', 'ai', 'draw')"
+      references: 'stones',
     },
-    user_score: {
+    black_score: {
       type: 'integer',
-      notNull: true
+      notNull: true,
+      default: 0
     },
-    ai_score: {
+    white_score: {
       type: 'integer',
-      notNull: true
+      notNull: true,
+      default: 0
     },
     finished_at: {
       type: 'timestamp',

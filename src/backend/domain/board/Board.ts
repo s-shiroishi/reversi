@@ -1,68 +1,155 @@
-import { generateId } from "@/backend/lib/generateId";
-import { Cell } from "../cell/Cell";
-import { StoneColor } from "../stone/types";
+import { Stone } from "../stone/Stone";
+import { StoneColor } from "../types";
+import { BoardError } from "./BoardError";
+
+export type Position = { row: number; col: number };
+export type ValidMove = {
+    position: Position;
+    flippableStones: Position[];
+};
 
 export class Board{
-    constructor(private readonly params: { id: string, cells: Cell[][]}){}
+    constructor(private readonly params: {cells:( Stone | null)[][]}){}
 
-    get id(){
-        return this.params.id
+    static create(): Board {
+        const cells: (Stone | null)[][] = [];
+        for (let row = 0; row < 8; row++) {
+            cells[row] = [];
+            for (let col = 0; col < 8; col++) {
+                cells[row][col] = null;
+            }
+        }
+
+        cells[3][3] = Stone.reconstruct({ color: "white" });
+        cells[3][4] = Stone.reconstruct({ color: "black" });
+        cells[4][3] = Stone.reconstruct({ color: "black" });
+        cells[4][4] = Stone.reconstruct({ color: "white" });
+
+        return new Board({ cells });
+    }
+
+    static reconstruct(params: { cells?: { row: number, col: number, color: string}[]}){
+        const cells: (Stone | null)[][] = [];
+        for (let row = 0; row < 8; row++){
+            cells[row] = []
+            for (let col = 0; col < 8; col++){
+                cells[row][col] = null;
+            }
+        }
+        params.cells?.forEach((cellData) => {
+            cells[cellData.row][cellData.col] = Stone.reconstruct({color: cellData.color})
+        })
+        return new Board({cells})
     }
 
     get cells(){
         return this.params.cells
     }
 
-    placeStone(params: { row: number, col: number, color: StoneColor}){
-
+    setStone(row: number, col: number, stone: Stone | null) {
+        if (row < 0 || row > 7 || col < 0 || col > 7) {
+            throw new Error("無効な座標です。");
+        }
+        this.cells[row][col] = stone;
     }
 
-    flipStones(params: { row: number, col: number, color: StoneColor}){
-
+    getStone(row: number, col: number): Stone | null {
+        if (row < 0 || row > 7 || col < 0 || col > 7) {
+            throw new Error("無効な座標です。");
+        }
+        return this.cells[row][col];
     }
 
-    getValidMoves(params: { color: StoneColor}){
-
+    isEmpty(row: number, col: number): boolean {
+        if (row < 0 || row > 7 || col < 0 || col > 7) {
+            throw new Error("無効な座標です。");
+        }
+        return this.cells[row][col] === null;
     }
 
-    countStones(params: { color: StoneColor}){
-
+    countStones(params: { color: StoneColor }) {
+        try {
+            return this.cells.flat().filter(stone => stone?.color === params.color).length;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "石を数えるのに失敗しました";
+            throw BoardError.countStonesFailed(errorMessage);
+        }
     }
 
-    isGameOver(){
-        
-    }
+    getValidMoves(params: { color: StoneColor }): ValidMove[] {
+        const validMoves: ValidMove[] = [];
+        const opponentColor = params.color === "black" ? "white" : "black";
 
-    static create(): Board {
-        const id = generateId()
-        const cells: Cell[][] = [];
+        const directions = [
+            [-1, 0], [-1, 1], [0, 1], [1, 1],
+            [1, 0], [1, -1], [0, -1], [-1, -1]
+        ];
+
         for (let row = 0; row < 8; row++) {
-            cells[row] = [];
             for (let col = 0; col < 8; col++) {
-                cells[row][col] = Cell.reconstruct({ row, col });
+                if (this.cells[row][col] !== null) continue;
+
+                const flippableStones: Position[] = [];
+                let isValidMove = false;
+
+                for (const [dr, dc] of directions) {
+                    const flippableStonesInDirection = this._getFlippableStonesInDirection({
+                        row,
+                        col,
+                        dr,
+                        dc,
+                        myColor: params.color,
+                        opponentColor
+                    });
+                    if (flippableStonesInDirection.length > 0) {
+                        flippableStones.push(...flippableStonesInDirection);
+                        isValidMove = true;
+                    }
+                }
+
+                if (isValidMove) {
+                    validMoves.push({
+                        position: { row, col },
+                        flippableStones
+                    });
+                }
             }
         }
 
-        // リバーシの初期配置
-        cells[3][3] = Cell.reconstruct({ row: 3, col: 3, color: "white" });
-        cells[3][4] = Cell.reconstruct({ row: 3, col: 4, color: "black" });
-        cells[4][3] = Cell.reconstruct({ row: 4, col: 3, color: "black" });
-        cells[4][4] = Cell.reconstruct({ row: 4, col: 4, color: "white" });
-
-        return new Board({ id, cells });
+        return validMoves;
     }
 
-    static reconstruct(params: { id: string, cells: { row: number, col: number, color: StoneColor}[]}){
-        const cells: Cell[][] = [];
-        for (let row = 0; row < 8; row++){
-            cells[row] = []
-            for (let col = 0; col < 8; col++){
-                cells[row][col] = Cell.reconstruct({row, col})
-            }
+    private _getFlippableStonesInDirection(params:{
+        row: number,
+        col: number,
+        dr: number,
+        dc: number,
+        myColor: StoneColor,
+        opponentColor: StoneColor
+    }): Position[] {
+        const flippableStones: Position[] = [];
+        let r = params.row + params.dr;
+        let c = params.col + params.dc;
+
+        if (r < 0 || r >= 8 || c < 0 || c >= 8 || this.cells[r][c]?.color !== params.opponentColor) {
+            return [];
         }
-        params.cells.forEach((cellData) => {
-            cells[cellData.row][cellData.col] = Cell.reconstruct(cellData)
-        })
-        return new Board({id: params.id, cells})
+
+        flippableStones.push({ row: r, col: c });
+
+        r += params.dr;
+        c += params.dc;
+
+        while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            const stone = this.cells[r][c];
+            if (stone === null) return [];
+            if (stone.color === params.myColor) return flippableStones;
+            flippableStones.push({ row: r, col: c });
+
+            r += params.dr;
+            c += params.dc;
+        }
+
+        return [];
     }
 }
