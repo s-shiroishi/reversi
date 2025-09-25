@@ -113,11 +113,6 @@ exports.up = (pgm) => {
     }
   });
 
-  // Create indexes for foreign keys
-  pgm.createIndex('games', 'user_id');
-  pgm.createIndex('move', 'game_id');
-  pgm.createIndex('move', 'stone_id');
-  pgm.createIndex('results', 'game_id');
 };
 
 exports.down = (pgm) => {

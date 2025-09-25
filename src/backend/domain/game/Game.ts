@@ -38,6 +38,10 @@ export class Game{
         return this.params.status
     }
 
+    endGame(){
+        this.params.status = "finished"
+    }
+
     switchTurn(){
         this.params.currentTurn = this.params.currentTurn === "black" ? "white" : "black"
     }
